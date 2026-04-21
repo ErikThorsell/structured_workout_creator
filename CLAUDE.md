@@ -85,7 +85,8 @@ Segment
     type: 'power' | 'heart_rate' | 'open'
     low: number                          // watts or bpm
     high: number                         // watts or bpm
-  intensity: 'warmup' | 'active' | 'recovery' | 'cooldown'
+  effort: 'easy' | 'tempo' | 'threshold' | 'vo2' | 'free_speed'  // maps to FIT intensity; drives fallback color
+  rideType: 'dual_file' | 'team_time_trial' | 'belgian_chain' | 'all_out' | null  // optional; overrides effort color
 
 GpxRoute
   rawXml: string                         // original GPX XML for re-export
@@ -161,9 +162,9 @@ export, waypoints are placed once at the physical locations -- the rider will pa
 2. **Import route** (route-based only): upload a GPX file. The route appears on a map.
 3. **Create segments**: either click points on the route to define GPS-anchored boundaries, or add segments manually
    with distance/time/lap-button duration.
-4. **Configure each segment**: name, notes, power target range, intensity, end condition type. If GPS-anchored, the
-   distance is auto-calculated but can be overridden. The user can switch any segment to `lap_button` to handle
-   variable-distance approaches.
+4. **Configure each segment**: name, notes, power target range, effort level, ride type (optional), end condition type.
+   If GPS-anchored, the distance is auto-calculated but can be overridden. The user can switch any segment to
+   `lap_button` to handle variable-distance approaches.
 5. **Group into repeats** (optional): select adjacent segments and wrap them in a repeat block. Set the iteration count.
    Useful for interval sets like 4×(threshold + recovery).
 6. **Visualize**: segments appear as colored overlays on the route, with a summary bar and table below the map. Repeat
@@ -178,10 +179,13 @@ export, waypoints are placed once at the physical locations -- the rider will pa
 
 ### Click-on-map creation
 
-- After loading a GPX, the user clicks a point on the route to start a segment and clicks another point to end it.
-  Clicks snap to the nearest track point on the route.
-- A panel appears for segment configuration (name, power, notes, end condition type).
-- The segment appears as a colored overlay on the route polyline between the two points.
+- After loading a GPX, a green marker shows the **frontier** -- the end of the last segment, or the route start if no
+  segments exist yet. This is always the implicit start of the next segment.
+- The user clicks one point ahead of the frontier to define the end of the new segment. A single click creates the
+  segment immediately; there is no separate "pick start" step.
+- Clicks at or behind the frontier (within 10 m) are ignored -- this enforces strict sequential, non-overlapping
+  segments.
+- The segment appears as a colored overlay on the route polyline from the frontier to the clicked point.
 
 ### Sequential creation
 
@@ -433,7 +437,7 @@ The minimum viable tool that is immediately useful for planning and sharing work
 - Segment editor: add, edit, remove, reorder segments.
 - All three end condition types: distance, time, lap button.
 - Click-on-map to place segment boundaries with snap-to-route.
-- Segment visualization: colored polyline overlays on the route by intensity type.
+- Segment visualization: colored polyline overlays on the route by effort/ride type.
 - Repeat blocks: wrap segments, set iterations, FIT export with repeat steps.
 - FIT workout file export.
 - GPX course file export with waypoints at segment boundaries.
@@ -444,12 +448,14 @@ The minimum viable tool that is immediately useful for planning and sharing work
 ### Phase 2 -- Polish and sharing
 
 - Drag-to-adjust segment boundaries on the map.
-- Save/load workouts to localStorage or as JSON files.
+- Save/load workouts as JSON files (download/upload).
 - URL-based sharing (encode workout definition in a shareable URL, or host JSON).
 - Segment templates / presets for common patterns (warmup, threshold, recovery).
 - FTP input with % FTP display alongside absolute watts.
 - Elevation profile display with segment overlay.
 - Kubernetes manifests (`k8s/` directory) if migration is happening.
+
+Already shipped from this list: localStorage auto-save (workout and mode persist across page reloads).
 
 ### Phase 3 -- Connect IQ data field (separate project)
 

@@ -1,0 +1,7 @@
+services:
+  workout-builder:
+    build: .
+    container_name: workout-builder
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
