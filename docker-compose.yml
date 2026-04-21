@@ -5,3 +5,12 @@ services:
     ports:
       - "5010:8080"
     restart: unless-stopped
+    networks:
+      - workout
+
+networks:
+  workout:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.16.238.144/28
