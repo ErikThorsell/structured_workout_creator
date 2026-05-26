@@ -28,6 +28,8 @@ function segmentToFitStep(seg: Segment, index: number): FitStep {
 
   const targetType = TARGET_TYPE[seg.target.type];
   const hasTarget = seg.target.type !== 'open';
+  // FIT power targets: values < 1000 are interpreted as %FTP; absolute watts are encoded as watts + 1000.
+  const powerOffset = seg.target.type === 'power' ? 1000 : 0;
 
   return {
     messageIndex: index,
@@ -37,8 +39,8 @@ function segmentToFitStep(seg: Segment, index: number): FitStep {
     durationValue,
     targetType,
     targetValue: 0,
-    customTargetLow: hasTarget ? seg.target.low : 0,
-    customTargetHigh: hasTarget ? seg.target.high : 0,
+    customTargetLow: hasTarget ? seg.target.low + powerOffset : 0,
+    customTargetHigh: hasTarget ? seg.target.high + powerOffset : 0,
     intensity: EFFORT_TO_FIT_INTENSITY[seg.effort],
   };
 }

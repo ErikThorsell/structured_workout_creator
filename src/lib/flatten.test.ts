@@ -26,8 +26,8 @@ describe('flattenItems', () => {
     expect(steps[0].durationType).toBe(1); // distance
     expect(steps[0].durationValue).toBe(100000); // 1000m * 100 = cm
     expect(steps[0].targetType).toBe(4); // power
-    expect(steps[0].customTargetLow).toBe(200);
-    expect(steps[0].customTargetHigh).toBe(250);
+    expect(steps[0].customTargetLow).toBe(1200); // 200W + 1000 offset
+    expect(steps[0].customTargetHigh).toBe(1250); // 250W + 1000 offset
   });
 
   it('flattens time-based segment', () => {
