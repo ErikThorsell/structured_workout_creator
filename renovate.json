@@ -1,0 +1,26 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "docker:pinDigests",
+    "helpers:pinGitHubActionDigestsToSemver"
+  ],
+  "packageRules": [
+    {
+      "description": [
+        "A new digest of a base image is the point of this repository's pipeline: the runtime base is Chainguard's",
+        "nginx, which is rebuilt upstream as fixes land, and its free tier publishes only `latest`, so the digest is",
+        "the pin. Merging the bump runs the build workflow on main, which scans the image and publishes the next",
+        "patch version. The `gate/build` status is what lets the merge wait for that scan: the bot's token cannot",
+        "read check runs.",
+        "No soak time. A base digest is a fix more often than a risk, and a bad one is stopped by the scan."
+      ],
+      "matchManagers": ["dockerfile"],
+      "matchUpdateTypes": ["digest"],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": false,
+      "minimumReleaseAge": null
+    }
+  ]
+}
