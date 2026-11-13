@@ -1,49 +1,125 @@
-# Build the static SPA into an nginx image and publish it to GHCR. The homelab cluster pulls a PINNED tag
-# (never :latest) per repo convention, so images are cut from git tags: push `v1.2.3` -> publishes
-# ghcr.io/erikthorsell/structured_workout_creator:1.2.3 (+ :1.2 and :1). Bump the tag in the homelab
-# Deployment to roll a new version. `workflow_dispatch` allows a manual rebuild of the current ref.
+# Builds the image, scans it, and on main publishes it under the next patch version.
+#
+#   pull request  build + scan only. The result is also published as the commit status `gate/build`,
+#                 because the homelab's Renovate token cannot read check runs (an Actions job is only a check
+#                 run), so without the status it would never see a Renovate PR as green and never automerge.
+#   push to main  build + scan, then tag the next vX.Y.Z and push the image that was scanned (the same image,
+#                 retagged, not a rebuild). Renovate merging a new base digest is what produces a release.
+#   dispatch      the same as a push to main; `bump` picks which part of the version moves.
+#
+# The scan fails the build on any HIGH or CRITICAL finding that has a fix. Unfixed findings do not fail it:
+# nothing can be done about them here. A failed scan on main publishes nothing, so the cluster keeps running
+# the last good tag.
+#
+# The version tag is created with GITHUB_TOKEN, and a push made with that token does not start another run,
+# so the tag cannot loop back into this workflow.
 name: build
 
 on:
+  pull_request:
   push:
-    tags:
-      - "v*"
+    branches: [main]
+    # Nothing here changes what is in the image.
+    paths-ignore:
+      - "**.md"
+      - ".github/**"
+      - "renovate.json"
+      - "docker-compose.yml"
   workflow_dispatch:
+    inputs:
+      bump:
+        description: Which part of the version to raise
+        type: choice
+        options: [patch, minor, major]
+        default: patch
 
-env:
-  IMAGE: ghcr.io/${{ github.repository_owner }}/structured_workout_creator
+# No token scope by default; the job asks for what it needs.
+permissions: {}
+
+# Two releases racing would compute the same version. PR runs get their own group per ref.
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('build-pr-{0}', github.ref) || 'build-release' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  build-push:
+  build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      packages: write
+      contents: write # push the version tag
+      packages: write # push the image
+      statuses: write # gate/build
+    env:
+      SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Report gate/build as pending
+        run: gh api "repos/${{ github.repository }}/statuses/$SHA" -f state=pending -f context=gate/build -f description="build and scan running"
 
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      # buildx rejects an uppercase repository, and github.repository_owner keeps the account's casing.
+      - name: Derive the image name
+        run: echo "IMAGE=ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')/structured_workout_creator" >> "$GITHUB_ENV"
+
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          load: true
+          push: false
+          tags: swb:scan
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+      - name: Scan the image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: swb:scan
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Choose the next version
+        if: github.event_name != 'pull_request'
+        run: |
+          last=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n1)
+          IFS=. read -r major minor patch <<< "${last:-v0.0.0}"
+          major=${major#v}
+          case "${{ inputs.bump }}" in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            *) patch=$((patch + 1)) ;;
+          esac
+          echo "VERSION=$major.$minor.$patch" >> "$GITHUB_ENV"
+          echo "last tag ${last:-none}; publishing $major.$minor.$patch"
+
+      # The tag goes first. It reserves the number, so a failed image push leaves a gap instead of a version
+      # that the next run would publish over.
+      - name: Tag the release
+        if: github.event_name != 'pull_request'
+        run: |
+          git tag "v$VERSION" "$SHA"
+          git push origin "v$VERSION"
+
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        if: github.event_name != 'pull_request'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Derive tags from the git ref: a semver tag `vX.Y.Z` -> X.Y.Z, X.Y, X. No :latest (pinned deploys only).
-      - name: Derive image tags
-        uses: docker/metadata-action@v5
-        id: meta
-        with:
-          images: ${{ env.IMAGE }}
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+      - name: Push the scanned image
+        if: github.event_name != 'pull_request'
+        run: |
+          docker tag swb:scan "$IMAGE:$VERSION"
+          docker push "$IMAGE:$VERSION"
+          echo "published $IMAGE:$VERSION"
 
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+      - name: Report gate/build
+        if: always()
+        run: |
+          state=failure; [ "${{ job.status }}" = success ] && state=success
+          gh api "repos/${{ github.repository }}/statuses/$SHA" -f state=$state -f context=gate/build \
+            -f description="build and scan: $state" -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
