@@ -21,6 +21,23 @@
       "automergeType": "pr",
       "platformAutomerge": false,
       "minimumReleaseAge": null
+    },
+    {
+      "description": [
+        "Every minor and patch update, whatever the manager, merges itself once the PR's `gate/build` is green.",
+        "Majors stay with a human: that is where an API changes underneath the code.",
+        "What `gate/build` covers is the image build (npm ci, tsc, vite build) and the Trivy scan. It does not run",
+        "vitest or eslint, so a dependency that breaks a test or a lint rule but still compiles merges anyway.",
+        "`gate/build` is the commit status the build workflow publishes for the PR, pending while it runs. It is what",
+        "lets the merge wait: the bot's token cannot read check runs, so without a status it would see nothing to",
+        "wait for. `platformAutomerge` is off for the same reason, as in the digest rule above.",
+        "A 0.x package counts as a minor when its second number moves, so 0.5 -> 0.6 merges here although semver",
+        "lets it break."
+      ],
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": false
     }
   ]
 }
