@@ -282,7 +282,9 @@ function loadWorkout(): Workout {
   try {
     const raw = localStorage.getItem(WORKOUT_STORAGE_KEY);
     if (raw) return migrateWorkout(JSON.parse(raw) as Workout);
-  } catch {}
+  } catch {
+    // Storage unavailable or the saved workout is corrupt: start from a fresh one.
+  }
   return createDefaultWorkout();
 }
 
@@ -292,7 +294,9 @@ export function useWorkoutReducer() {
   useEffect(() => {
     try {
       localStorage.setItem(WORKOUT_STORAGE_KEY, JSON.stringify(workout));
-    } catch {}
+    } catch {
+      // Storage full or disabled: the workout stays in memory and is not saved.
+    }
   }, [workout]);
 
   return [workout, dispatch] as const;

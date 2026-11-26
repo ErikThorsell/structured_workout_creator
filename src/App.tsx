@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { WorkoutContext, useWorkoutReducer, createDefaultWorkout } from './hooks/use-workout';
-import { WelcomeModal, hasSeenWelcome } from './components/welcome-modal';
+import { WelcomeModal } from './components/welcome-modal';
+import { hasSeenWelcome } from './lib/welcome';
 import { parseGpx } from './lib/gpx-parser';
 import { MapView } from './components/map-view';
 import { SegmentList } from './components/segment-list';
