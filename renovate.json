@@ -26,14 +26,17 @@
       "automerge": true,
       "automergeType": "pr",
       "platformAutomerge": false,
+      "rebaseWhen": "conflicted",
       "minimumReleaseAge": null
     },
     {
       "description": [
         "Every minor and patch update, whatever the manager, merges itself once the PR's `gate/build` is green.",
         "Majors stay with a human: that is where an API changes underneath the code.",
-        "What `gate/build` covers is the image build (npm ci, tsc, vite build) and the Trivy scan. It does not run",
-        "vitest or eslint, so a dependency that breaks a test or a lint rule but still compiles merges anyway.",
+        "`gate/build` covers the image build, which runs eslint and vitest before tsc and vite build, and the Trivy",
+        "scan, so a dependency that breaks a test, a lint rule or the base image's scan does not merge.",
+        "`rebaseWhen: conflicted` lets every green PR merge in one run. Renovate's default for an automerging PR is",
+        "to rebase it whenever it is behind, which re-runs the gate and allows one merge per run.",
         "`gate/build` is the commit status the build workflow publishes for the PR, pending while it runs. It is what",
         "lets the merge wait: the bot's token cannot read check runs, so without a status it would see nothing to",
         "wait for. `platformAutomerge` is off for the same reason, as in the digest rule above.",
@@ -43,7 +46,8 @@
       "matchUpdateTypes": ["minor", "patch"],
       "automerge": true,
       "automergeType": "pr",
-      "platformAutomerge": false
+      "platformAutomerge": false,
+      "rebaseWhen": "conflicted"
     }
   ]
 }
