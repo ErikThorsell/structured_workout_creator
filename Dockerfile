@@ -4,6 +4,11 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
+# Lint and tests run inside the image build, so `gate/build` (which is this build plus the scan) fails when
+# either does. That is what lets Renovate automerge minor and patch updates safely: the bot's token cannot
+# read check runs, so a separate lint/test job would never be seen by it. Doing it here also means the image
+# that is published is the one that passed.
+RUN npm run lint && npm test
 RUN npm run build
 
 # Stage 2: Serve
