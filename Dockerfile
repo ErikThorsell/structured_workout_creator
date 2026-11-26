@@ -16,7 +16,7 @@ RUN npm run build
 # no libxslt/libexpat/curl. It is rebuilt upstream as fixes land, and `latest` is the only tag it
 # publishes for free, so the digest is the pin (Renovate bumps it). The container runs unprivileged on
 # :8080 with a read-only root filesystem; the config keeps all writable paths under /tmp.
-FROM cgr.dev/chainguard/nginx:latest@sha256:ff2a257e03689363e7dabc3456030c58b790604c3a8f91902fe89a604ec05ce3
+FROM cgr.dev/chainguard/nginx:latest@sha256:9debcc9767ac653c2b302d74d1ce157a445da8bbcc1f2d48993d02f68fb2e964
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY security-headers.conf /etc/nginx/security-headers.conf
