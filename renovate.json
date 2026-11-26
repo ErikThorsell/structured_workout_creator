@@ -5,6 +5,12 @@
     "docker:pinDigests",
     "helpers:pinGitHubActionDigestsToSemver"
   ],
+  "description": [
+    "prConcurrentLimit is raised from Renovate's default of 10. Ten open PRs, all red because the base image's",
+    "scan failed, left no room for the PR that bumps the base image, so nothing could ever turn green. The limit",
+    "only has to be above what a backlog can reach; automerge keeps the normal count near zero."
+  ],
+  "prConcurrentLimit": 20,
   "packageRules": [
     {
       "description": [
